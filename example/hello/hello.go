@@ -1,8 +1,9 @@
 package main
 
 import (
-		"fmt"
-		"github.com/tjtrebat/stringutil"
+	"fmt"
+
+	"github.com/tjtrebat/example/stringutil"
 )
 
 func main() {
