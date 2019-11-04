@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/tjtrebat/fileupload/db"
 	"github.com/tjtrebat/fileupload/utils"
@@ -19,7 +18,6 @@ func insertMetaData(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		db.Insert(f)
-		fmt.Printf("name: %s, size: %d, contentType: %s", f.Name, f.Size, f.ContentType)
 		writeResponse(w, f)
 	}
 }
@@ -36,7 +34,7 @@ func parseFileMetaData(r *http.Request) (*db.FileMetaData, error) {
 }
 
 func unmarshal(body []byte) (*db.FileMetaData, error) {
-	f := db.FileMetaData{Timestamp: time.Now().Unix()}
+	f := db.FileMetaData{}
 	err := json.Unmarshal(body, &f)
 	if err != nil {
 		fmt.Printf("An error occurred: %v", err)
@@ -71,7 +69,14 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, err = db.Update(id, temp)
+	_, err = db.Update(
+		&db.FileMetaData{
+			ID:          int64(id),
+			Name:        handler.Filename,
+			Size:        handler.Size,
+			ContentType: handler.Header["Content-Type"][0],
+			Location:    temp,
+		})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -79,9 +84,20 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Successfully Uploaded File: %s\n", temp)
 }
 
+func viewFile(w http.ResponseWriter, r *http.Request) {
+	id, err := utils.FileIDFromPath(r.URL.Path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	f, err := db.Select(id)
+	http.ServeFile(w, r, f.Location)
+}
+
 func main() {
 	db.InitDB()
 	http.HandleFunc("/phase1", insertMetaData)
 	http.HandleFunc("/phase2", uploadFile)
+	http.HandleFunc("/", viewFile)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

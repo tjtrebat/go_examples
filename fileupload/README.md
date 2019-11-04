@@ -37,8 +37,13 @@ curl -X POST "http://localhost:8080/phase1" -H "Content-Type: application/json" 
 Upload a file using the ID obtained from the response:
 
 `
-curl -F 'data=@/home/user/Documents/Resume.pdf' -F "id=1" http://localhost:8080/phase2
+curl -F 'data=@/home/user/Documents/Resume.pdf' -F "id=<ID of file upload>" http://localhost:8080/phase2
 `
+
+View the uploaded file with the specified ID:
+
+`
+curl http://localhost:8080/data/<ID of file upload>
 
 ## Running the tests
 

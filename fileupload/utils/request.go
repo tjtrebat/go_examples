@@ -1,11 +1,13 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -19,12 +21,23 @@ func FileID(r *http.Request) (int, error) {
 	return id, nil
 }
 
+var validPath = regexp.MustCompile("^/data/([0-9]+)$")
+
+// FileIDFromPath returns channel id from a url
+func FileIDFromPath(path string) (int, error) {
+	m := validPath.FindStringSubmatch(path)
+	if m == nil {
+		return -1, errors.New("Invalid File ID")
+	}
+	return strconv.Atoi(m[1])
+}
+
 // RetrieveFile retrieves the file in the request
 func RetrieveFile(r *http.Request) (multipart.File, *multipart.FileHeader, error) {
 	r.ParseMultipartForm(10 << 20)
 	file, handler, err := r.FormFile("data")
 	if err != nil {
-		fmt.Printf("An error occurred retrieving file: %v", file)
+		fmt.Printf("An error occurred: %v", file)
 		return nil, nil, err
 	}
 	defer file.Close()

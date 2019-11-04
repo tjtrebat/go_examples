@@ -2,8 +2,10 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	// MySql driver
 	_ "github.com/go-sql-driver/mysql"
@@ -30,13 +32,13 @@ func InitDB() {
 	defer rows.Close()
 }
 
-// FileMetaData used for db insert operation
+// FileMetaData used for db insert/update operations
 type FileMetaData struct {
 	ID          int64
 	Name        string `json:"name"`
-	Size        int    `json:"size"`
+	Size        int64  `json:"size"`
 	ContentType string `json:"contentType"`
-	Timestamp   int64
+	Location    string
 }
 
 // Insert a new row in the db
@@ -47,32 +49,46 @@ func Insert(f *FileMetaData) (*FileMetaData, error) {
 		return nil, err
 	}
 	defer stmt.Close()
-	result, err := stmt.Exec(f.Name, f.Size, f.ContentType, f.Timestamp)
+	result, err := stmt.Exec(f.Name, f.Size, f.ContentType, time.Now().Unix())
 	if err != nil {
 		fmt.Printf("An error occurred: %v\n", err)
 		return nil, err
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		fmt.Println("LastInsertId() returns null!")
-	} else {
-		f.ID = id
-	}
+	f.ID, _ = result.LastInsertId()
 	return f, nil
 }
 
 // Update a location in db
-func Update(id int, location string) (sql.Result, error) {
-	stmt, err := db.Prepare("UPDATE uploads SET location=? WHERE id=?")
+func Update(f *FileMetaData) (sql.Result, error) {
+	stmt, err := db.Prepare("UPDATE uploads SET name=?, size=?, content_type=?, location=? WHERE id=?")
 	if err != nil {
 		fmt.Printf("An error occurred: %v", err)
 		return nil, err
 	}
 	defer stmt.Close()
-	result, err := stmt.Exec(location, id)
+	result, err := stmt.Exec(f.Name, f.Size, f.ContentType, f.Location, f.ID)
 	if err != nil {
 		fmt.Printf("An error occurred: %v\n", err)
 		return nil, err
 	}
 	return result, nil
+}
+
+// Select a row from the db
+func Select(id int) (*FileMetaData, error) {
+	rows, err := db.Query("SELECT name, size, content_type, location FROM uploads WHERE id=?", id)
+	if err != nil {
+		fmt.Printf("An error occurred: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, errors.New("File with specified id does not exist")
+	}
+	f := FileMetaData{}
+	if err := rows.Scan(&f.Name, &f.Size, &f.ContentType, &f.Location); err != nil {
+		fmt.Printf("An error occurred: %v", err)
+		return nil, err
+	}
+	return &f, nil
 }
